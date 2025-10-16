@@ -17,16 +17,11 @@
     "build:server": "vite build --config vite.config.server.ts",
     "start": "node dist/server/node-build.mjs",
     "test": "vitest --run",
-    "test:backend": "vitest --config vitest.config.backend.ts --run",
+    "test:backend": "sudo ./node_modules/.bin/vitest --config vitest.config.backend.ts --run",
     "test:backend:watch": "vitest --config vitest.config.backend.ts",
     "test:backend:coverage": "vitest --config vitest.config.backend.ts --coverage --run",
     "test:all": "npm run test && npm run test:backend",
     "test:coverage": "npm run test:backend:coverage",
-    "test:db:setup": "docker run --name fairdatause-test-db -e POSTGRES_DB=fairdatause_test -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres:15",
-    "test:db:start": "docker start fairdatause-test-db",
-    "test:db:stop": "docker stop fairdatause-test-db",
-    "test:db:clean": "docker rm -f fairdatause-test-db",
-    "test:db:logs": "docker logs fairdatause-test-db",
     "test:unit": "vitest run tests/buffer-parsing.test.ts",
     "format.fix": "prettier --write .",
     "typecheck": "tsc"
@@ -41,6 +36,7 @@
     "express": "^5.1.0",
     "pg": "^8.16.3",
     "serverless-http": "^3.2.0",
+    "testcontainers": "^11.7.1",
     "zod": "^3.25.76"
   },
   "devDependencies": {
@@ -95,6 +91,7 @@
     "framer-motion": "^12.23.12",
     "globals": "^16.3.0",
     "input-otp": "^1.4.2",
+    "jsdom": "^27.0.0",
     "lucide-react": "^0.539.0",
     "msw": "^2.10.5",
     "next-themes": "^0.4.6",
