@@ -6,75 +6,13 @@ import {
   type SocialQualifyResponse,
 } from "../../shared/schemas";
 
-let pool: Pool | null = null;
-
-// PostgreSQL connection
-function getDatabase(): Pool {
-  console.log("[DB] Getting database connection...");
-
-  if (pool) {
-    console.log("[DB] Using existing connection pool");
-    return pool;
-  }
-
-  // Use TEST_DATABASE_URL in test environment, otherwise DATABASE_URL
-  const databaseUrl = process.env.NODE_ENV === 'test' 
-    ? process.env.TEST_DATABASE_URL 
-    : process.env.DATABASE_URL;
-  console.log("[DB] Database URL configured:", databaseUrl ? "YES" : "NO");
-
-  if (!databaseUrl) {
-    const envVar = process.env.NODE_ENV === 'test' ? 'TEST_DATABASE_URL' : 'DATABASE_URL';
-    console.error(`[DB] ${envVar} environment variable is not set`);
-    throw new Error(`${envVar} environment variable is not set`);
-  }
-
-  try {
-    console.log("[DB] Creating PostgreSQL connection pool...");
-    pool = new Pool({
-      connectionString: databaseUrl,
-      ssl: databaseUrl.includes('neon.tech') ? { rejectUnauthorized: false } : false,
-      max: 10,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 10000,
-    });
-
-    console.log("[DB] PostgreSQL connection pool created successfully");
-    return pool;
-  } catch (error) {
-    console.error("[DB] Failed to create PostgreSQL connection pool:", error);
-    throw error;
-  }
-}
 
 // Reddit API integration
+
 async function verifyRedditAccount(username: string): Promise<boolean> {
   console.log(`[REDDIT] Verifying Reddit account: ${username}`);
 
   try {
-    const clientId = process.env.REDDIT_CLIENT_ID;
-    const clientSecret = process.env.REDDIT_CLIENT_SECRET;
-
-    console.log("[REDDIT] Client ID configured:", clientId ? "YES" : "NO");
-    console.log(
-      "[REDDIT] Client Secret configured:",
-      clientSecret ? "YES" : "NO",
-    );
-
-    if (!clientId || !clientSecret) {
-      console.error("[REDDIT] ❌ REDDIT API CREDENTIALS NOT CONFIGURED ❌");
-      console.error(
-        "[REDDIT] Missing:",
-        !clientId ? "REDDIT_CLIENT_ID" : "",
-        !clientSecret ? "REDDIT_CLIENT_SECRET" : "",
-      );
-      console.error(
-        "[REDDIT] Reddit verification will fail for all users until credentials are set",
-      );
-      console.error("[REDDIT] See REDDIT_API_SETUP.md for instructions");
-      return false;
-    }
-
     // Get Reddit OAuth token
     console.log("[REDDIT] Requesting OAuth token from Reddit...");
     const authResponse = await fetch(
@@ -82,7 +20,7 @@ async function verifyRedditAccount(username: string): Promise<boolean> {
       {
         method: "POST",
         headers: {
-          Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
+          Authorization: `Basic ${Buffer.from(`${process.env.REDDIT_CLIENT_ID}:${process.env.REDDIT_CLIENT_SECRET}`).toString("base64")}`,
           "Content-Type": "application/x-www-form-urlencoded",
           "User-Agent": "FairDataUse/1.0.0",
         },
@@ -135,42 +73,14 @@ export const handleCheckUserExists: RequestHandler = async (req, res) => {
   console.log("[API] ==================== CHECK USER EXISTS REQUEST ====================");
   console.log("[API] Request body:", JSON.stringify(req.body, null, 2));
 
-  const client = getDatabase();
+  const { db } = req as any;
 
   try {
-    // Handle case where body is a Buffer (serverless function issue)
     let parsedBody = req.body;
-    console.log("[API] Raw req.body type:", typeof req.body);
-    console.log("[API] Is Buffer:", Buffer.isBuffer(req.body));
-    
-    if (Buffer.isBuffer(req.body)) {
-      console.log("[API] Body is Buffer, converting to string and parsing JSON");
-      const bodyString = req.body.toString('utf8');
-      console.log("[API] Body string:", bodyString);
-      try {
-        parsedBody = JSON.parse(bodyString);
-        console.log("[API] Successfully parsed JSON from buffer:", parsedBody);
-      } catch (parseError) {
-        console.error("[API] Failed to parse JSON from buffer:", parseError);
-        return res.status(400).json({
-          success: false,
-          message: "Invalid JSON in request body",
-        });
-      }
-    } else if (typeof req.body === 'string') {
-      console.log("[API] Body is string, parsing JSON");
-      try {
-        parsedBody = JSON.parse(req.body);
-        console.log("[API] Successfully parsed JSON from string:", parsedBody);
-      } catch (parseError) {
-        console.error("[API] Failed to parse JSON from string:", parseError);
-        return res.status(400).json({
-          success: false,
-          message: "Invalid JSON in request body",
-        });
-      }
+    if (req.body instanceof Buffer) {
+      parsedBody = JSON.parse(req.body.toString());
     }
-    
+
     const { email, phone } = parsedBody;
     console.log("[API] Extracted email:", email);
     console.log("[API] Extracted phone:", phone);
@@ -189,8 +99,8 @@ export const handleCheckUserExists: RequestHandler = async (req, res) => {
       SELECT id FROM users
       WHERE email = $1 AND phone = $2
     `;
-    const existingUserResult = await client.query(existingUserQuery, [email, phone]);
-    
+    const existingUserResult = await db.query(existingUserQuery, [email, phone]);
+
     const userExists = existingUserResult.rows.length > 0;
     console.log("[API] User exists:", userExists ? "YES" : "NO");
 
@@ -217,40 +127,12 @@ export const handleSocialQualifyForm: RequestHandler = async (req, res) => {
   console.log("[API] Request headers:", JSON.stringify(req.headers, null, 2));
   console.log("[API] Request body:", JSON.stringify(req.body, null, 2));
 
-  const client = getDatabase();
+  const { db } = req as any;
 
   try {
-    // Handle case where body is a Buffer or string (serverless function issue)
     let parsedBody = req.body;
-    console.log("[API] Raw req.body type:", typeof req.body);
-    console.log("[API] Is Buffer:", Buffer.isBuffer(req.body));
-    
-    if (Buffer.isBuffer(req.body)) {
-      console.log("[API] Body is Buffer, converting to string and parsing JSON");
-      const bodyString = req.body.toString('utf8');
-      console.log("[API] Body string:", bodyString);
-      try {
-        parsedBody = JSON.parse(bodyString);
-        console.log("[API] Successfully parsed JSON from buffer:", parsedBody);
-      } catch (parseError) {
-        console.error("[API] Failed to parse JSON from buffer:", parseError);
-        return res.status(400).json({
-          success: false,
-          message: "Invalid JSON in request body",
-        });
-      }
-    } else if (typeof req.body === 'string') {
-      console.log("[API] Body is string, parsing JSON");
-      try {
-        parsedBody = JSON.parse(req.body);
-        console.log("[API] Successfully parsed JSON from string:", parsedBody);
-      } catch (parseError) {
-        console.error("[API] Failed to parse JSON from string:", parseError);
-        return res.status(400).json({
-          success: false,
-          message: "Invalid JSON in request body",
-        });
-      }
+    if (req.body instanceof Buffer) {
+      parsedBody = JSON.parse(req.body.toString());
     }
 
     console.log("[API] Validating request body with schema...");
@@ -269,7 +151,7 @@ export const handleSocialQualifyForm: RequestHandler = async (req, res) => {
       SELECT id FROM users
       WHERE email = $1 AND phone = $2
     `;
-    const existingUserResult = await client.query(existingUserQuery, [
+    const existingUserResult = await db.query(existingUserQuery, [
       validatedData.email,
       validatedData.phone,
     ]);
@@ -322,7 +204,7 @@ export const handleSocialQualifyForm: RequestHandler = async (req, res) => {
       redditVerified,
     ];
 
-    const result = await client.query(insertUserQuery, insertValues);
+    const result = await db.query(insertUserQuery, insertValues);
     console.log(
       "[API] Database insert result:",
       JSON.stringify(result.rows[0], null, 2),

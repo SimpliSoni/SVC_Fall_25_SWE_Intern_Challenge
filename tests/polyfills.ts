@@ -1,7 +1,9 @@
+console.log('Polyfills script running...');
+const { File } = require('buffer');
+
 if (!global.File) {
-  global.File = class MockFile {
-    constructor(parts, filename, options) {
-      // A simple mock that doesn't need to do anything
-    }
-  } as any;
+  console.log('File API is not defined. Applying polyfill...');
+  global.File = File;
+} else {
+  console.log('File API is already defined.');
 }

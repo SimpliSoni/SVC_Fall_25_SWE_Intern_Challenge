@@ -1,15 +1,21 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import request from 'supertest';
 import { createServer } from '../server/index';
-import { getTestDatabase } from './setup-backend';
+import { testDb } from './setup-backend';
+import { Client } from 'pg';
 
 describe('POST /api/check-user-exists', () => {
-  const app = createServer();
-  const db = getTestDatabase();
+  let app;
+  let db: Client;
+
+  beforeAll(() => {
+    db = testDb;
+    app = createServer(db);
+  });
 
   beforeEach(async () => {
     // Clean up any existing test data
-    await db.query('DELETE FROM users WHERE email LIKE $1', ['%test%']);
+    await db.query('TRUNCATE TABLE users RESTART IDENTITY CASCADE');
   });
 
   describe('Successful requests', () => {

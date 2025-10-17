@@ -6,9 +6,6 @@ export default defineConfig({
     name: 'backend',
     environment: 'node',
     globals: true,
-    env: {
-      TESTCONTAINERS_DOCKER_SOCKET_PATH: '/var/run/docker.sock',
-    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'lcov'],
@@ -28,8 +25,12 @@ export default defineConfig({
         },
       },
     },
-    setupFiles: ['tests/polyfills.ts', 'tests/setup-backend.ts'],
-    hookTimeout: 60000,
+    globalSetup: ['./tests/setup-backend.ts'],
+    setupFiles: ['./tests/polyfills.ts', './tests/setup-vitest.ts'],
+    hookTimeout: 120000,
+    env: {
+      TESTCONTAINERS_DOCKER_SOCKET_PATH: '/var/run/docker.sock',
+    },
   },
   resolve: {
     alias: {
