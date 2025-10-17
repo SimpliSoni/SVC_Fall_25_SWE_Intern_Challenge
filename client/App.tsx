@@ -15,28 +15,40 @@ import Marketplace from "./pages/Marketplace";
 
 const queryClient = new QueryClient();
 
-const App = () => (
+export const AppProviders = ({ children }: { children: React.ReactNode }) => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <AuthProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/social-qualify-form" element={<SocialQualifyForm />} />
-            <Route path="/marketplace" element={<Marketplace />} />
-            <Route
-              path="/companies/silicon-valley-consulting"
-              element={<SiliconValleyConsulting />}
-            />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
+        {children}
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
+);
+
+export const AppRoutes = () => {
+  return (
+    <Routes>
+      <Route path="/" element={<Index />} />
+      <Route path="/social-qualify-form" element={<SocialQualifyForm />} />
+      <Route path="/marketplace" element={<Marketplace />} />
+      <Route
+        path="/companies/silicon-valley-consulting"
+        element={<SiliconValleyConsulting />}
+      />
+      {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  );
+};
+
+export const App = () => (
+  <AppProviders>
+    <BrowserRouter>
+      <AppRoutes />
+    </BrowserRouter>
+  </AppProviders>
 );
 
 // Ensure createRoot is only called once
