@@ -1,11 +1,17 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import request from 'supertest';
 import { createServer } from '../server/index';
-import { getTestDatabase } from './setup-backend';
+import { pool } from './setup-vitest';
+import { Pool } from 'pg';
 
 describe('POST /api/contractor-request', () => {
-  const app = createServer();
-  const db = getTestDatabase();
+  let app;
+  let db: Pool;
+
+  beforeAll(() => {
+    db = pool;
+    app = createServer(db);
+  });
 
   const testUser = {
     email: 'contractor-test@example.com',
@@ -303,11 +309,8 @@ describe('POST /api/contractor-request', () => {
       const response = await request(app)
         .post('/api/contractor-request')
         .set('Content-Type', 'application/json')
-        .send('{"invalid": json}');
-
-      // Express middleware catches malformed JSON - behavior varies by environment
-      expect([400, 500]).toContain(response.status);
-      expect(response.status).toBeGreaterThanOrEqual(400);
+        .send('{"invalid": json}')
+        .expect(500);
     });
   });
 

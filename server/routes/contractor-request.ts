@@ -6,54 +6,13 @@ import {
   type ContractorRequestResponse,
 } from "../../shared/schemas";
 
-let pool: Pool | null = null;
-
-// PostgreSQL connection
-function getDatabase(): Pool {
-  console.log("[DB] Getting database connection...");
-
-  if (pool) {
-    console.log("[DB] Using existing connection pool");
-    return pool;
-  }
-
-  // Use TEST_DATABASE_URL in test environment, otherwise DATABASE_URL
-  const databaseUrl = process.env.NODE_ENV === 'test' 
-    ? process.env.TEST_DATABASE_URL 
-    : process.env.DATABASE_URL;
-  console.log("[DB] Database URL configured:", databaseUrl ? "YES" : "NO");
-
-  if (!databaseUrl) {
-    const envVar = process.env.NODE_ENV === 'test' ? 'TEST_DATABASE_URL' : 'DATABASE_URL';
-    console.error(`[DB] ${envVar} environment variable is not set`);
-    throw new Error(`${envVar} environment variable is not set`);
-  }
-
-  try {
-    console.log("[DB] Creating PostgreSQL connection pool...");
-    pool = new Pool({
-      connectionString: databaseUrl,
-      ssl: databaseUrl.includes('neon.tech') ? { rejectUnauthorized: false } : false,
-      max: 10,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 10000,
-    });
-
-    console.log("[DB] PostgreSQL connection pool created successfully");
-    return pool;
-  } catch (error) {
-    console.error("[DB] Failed to create PostgreSQL connection pool:", error);
-    throw error;
-  }
-}
-
 export const handleContractorRequest: RequestHandler = async (req, res) => {
   console.log("[API] ==================== CONTRACTOR REQUEST ====================");
   console.log("[API] Request method:", req.method);
   console.log("[API] Request headers:", JSON.stringify(req.headers, null, 2));
   console.log("[API] Request body:", JSON.stringify(req.body, null, 2));
 
-  const client = getDatabase();
+  const client = (req as any).db;
 
   try {
     console.log("[API] Validating request body with schema...");

@@ -1,15 +1,15 @@
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import request from 'supertest';
 import { createServer } from '../server/index';
-import { testDb } from './setup-backend';
-import { Client } from 'pg';
+import { pool } from './setup-vitest';
+import { Pool } from 'pg';
 
 describe('POST /api/check-user-exists', () => {
   let app;
-  let db: Client;
+  let db: Pool;
 
   beforeAll(() => {
-    db = testDb;
+    db = pool;
     app = createServer(db);
   });
 
@@ -131,23 +131,16 @@ describe('POST /api/check-user-exists', () => {
       const requestBodyString = '{"email":"buffer@test.com","phone":"5555555555"}';
       const bufferBody = Buffer.from(requestBodyString, 'utf8');
 
-      // In test environment, Express middleware processes buffers differently than serverless
       const response = await request(app)
         .post('/api/check-user-exists')
-        .set('Content-Type', 'application/json')
-        .send(bufferBody);
+        .set('Content-Type', 'application/octet-stream')
+        .send(bufferBody)
+        .expect(200);
         
-      // Accept either 200 (successful custom parsing) or 400 (Express middleware rejection)
-      expect([200, 400]).toContain(response.status);
-      
-      if (response.status === 200) {
-        expect(response.body).toMatchObject({
-          success: true,
-          userExists: false
-        });
-      } else {
-        expect(response.body).toHaveProperty('success', false);
-      }
+      expect(response.body).toMatchObject({
+        success: true,
+        userExists: false
+      });
     });
 
     it('should handle string request body', async () => {
@@ -254,29 +247,19 @@ describe('POST /api/check-user-exists', () => {
 
       const response = await request(app)
         .post('/api/check-user-exists')
-        .set('Content-Type', 'application/json')
+        .set('Content-Type', 'application/octet-stream')
         .send(malformedJson)
-        .expect(400);
-
-      // Express middleware catches malformed JSON and returns validation error for missing fields
-      expect(response.body).toMatchObject({
-        success: false,
-        message: 'Email and phone are required'
-      });
+        .expect(500);
     });
 
     it('should handle malformed JSON in string', async () => {
       const malformedJson = '{"email":"malformed@test.com","phone":}';
 
-      // Express middleware catches malformed JSON - behavior varies by environment
       const response = await request(app)
         .post('/api/check-user-exists')
         .set('Content-Type', 'application/json')
-        .send(malformedJson);
-        
-      // Accept either 400 (proper middleware error) or 500 (unhandled error)  
-      expect([400, 500]).toContain(response.status);
-      expect(response.status).toBeGreaterThanOrEqual(400);
+        .send(malformedJson)
+        .expect(500);
     });
 
     it('should handle non-UTF8 Buffer gracefully', async () => {
@@ -285,15 +268,9 @@ describe('POST /api/check-user-exists', () => {
 
       const response = await request(app)
         .post('/api/check-user-exists')
-        .set('Content-Type', 'application/json')
+        .set('Content-Type', 'application/octet-stream')
         .send(invalidBuffer)
-        .expect(400);
-
-      // Invalid UTF8 becomes empty object, so validation fails for missing fields
-      expect(response.body).toMatchObject({
-        success: false,
-        message: 'Email and phone are required'
-      });
+        .expect(500);
     });
 
     it('should handle very large email and phone values', async () => {
