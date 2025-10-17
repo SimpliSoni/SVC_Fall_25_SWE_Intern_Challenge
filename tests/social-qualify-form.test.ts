@@ -1,12 +1,20 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll } from 'vitest';
 import request from 'supertest';
 import { createServer } from '../server/index';
-import { getTestDatabase, mockServer } from './setup-backend';
+import { server } from './mocks/server';
 import { HttpResponse, http } from 'msw';
+import { pool } from './setup-vitest';
 
 describe('POST /api/social-qualify-form', () => {
-  const app = createServer();
-  const db = getTestDatabase();
+  let app;
+
+  beforeAll(() => {
+    app = createServer(pool);
+    server.listen({ onUnhandledRequest: 'bypass' });
+  });
+
+  afterEach(() => server.resetHandlers());
+  afterAll(() => server.close());
 
   const validFormData = {
     email: 'test@example.com',
@@ -18,8 +26,7 @@ describe('POST /api/social-qualify-form', () => {
   };
 
   beforeEach(async () => {
-    // Clean up any existing test data
-    await db.query('DELETE FROM users WHERE email LIKE $1', ['%test%']);
+    await pool.query('TRUNCATE TABLE users RESTART IDENTITY CASCADE');
   });
 
   describe('Successful submissions', () => {
@@ -43,7 +50,7 @@ describe('POST /api/social-qualify-form', () => {
       });
 
       // Verify user was saved to database
-      const userResult = await db.query(
+      const userResult = await pool.query(
         'SELECT * FROM users WHERE email = $1',
         [validFormData.email]
       );
@@ -61,7 +68,7 @@ describe('POST /api/social-qualify-form', () => {
 
     it('should reject form submission with nonexistent Reddit user', async () => {
       // Mock Reddit API to return 404 for this user
-      mockServer.use(
+      server.use(
         http.get('https://oauth.reddit.com/user/nonexistentuser/about', () => {
           return new HttpResponse(null, { status: 404 });
         })
@@ -84,7 +91,7 @@ describe('POST /api/social-qualify-form', () => {
       });
 
       // Verify user was NOT saved to database
-      const userResult = await db.query(
+      const userResult = await pool.query(
         'SELECT * FROM users WHERE email = $1',
         [formData.email]
       );
@@ -106,7 +113,7 @@ describe('POST /api/social-qualify-form', () => {
       expect(response.body.success).toBe(true);
 
       // Verify optional fields are null in database
-      const userResult = await db.query(
+      const userResult = await pool.query(
         'SELECT * FROM users WHERE email = $1',
         [minimalFormData.email]
       );
@@ -229,7 +236,7 @@ describe('POST /api/social-qualify-form', () => {
   describe('Reddit API integration', () => {
     it('should reject when Reddit API OAuth fails', async () => {
       // Mock Reddit OAuth to fail
-      mockServer.use(
+      server.use(
         http.post('https://www.reddit.com/api/v1/access_token', () => {
           return new HttpResponse(null, { status: 401 });
         })
@@ -249,7 +256,7 @@ describe('POST /api/social-qualify-form', () => {
       });
 
       // Verify user was NOT saved to database
-      const userResult = await db.query(
+      const userResult = await pool.query(
         'SELECT * FROM users WHERE email = $1',
         ['oauth-fail@example.com']
       );
@@ -258,7 +265,7 @@ describe('POST /api/social-qualify-form', () => {
 
     it('should reject when Reddit API has network error', async () => {
       // Mock Reddit API to throw network error
-      mockServer.use(
+      server.use(
         http.post('https://www.reddit.com/api/v1/access_token', () => {
           return HttpResponse.error();
         })
@@ -278,7 +285,7 @@ describe('POST /api/social-qualify-form', () => {
       });
 
       // Verify user was NOT saved to database
-      const userResult = await db.query(
+      const userResult = await pool.query(
         'SELECT * FROM users WHERE email = $1',
         ['network-error@example.com']
       );
@@ -318,7 +325,7 @@ describe('POST /api/social-qualify-form', () => {
 
       const response = await request(app)
         .post('/api/social-qualify-form')
-        .set('Content-Type', 'application/json')
+        .set('Content-Type', 'application/octet-stream')
         .send(bufferBody)
         .expect(200);
 

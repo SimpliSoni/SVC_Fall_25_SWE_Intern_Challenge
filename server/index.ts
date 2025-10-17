@@ -14,7 +14,9 @@ console.log("- REDDIT_CLIENT_ID:", process.env.REDDIT_CLIENT_ID ? "configured" :
 console.log("- REDDIT_CLIENT_SECRET:", process.env.REDDIT_CLIENT_SECRET ? "configured" : "NOT SET");
 console.log("========================================================");
 
-export function createServer() {
+import { Pool } from "pg";
+
+export function createServer(pool?: Pool) {
   const app = express();
 
   // Request logging middleware
@@ -33,8 +35,20 @@ export function createServer() {
     next();
   });
 
+  app.use(async (req, res, next) => {
+    if (pool) {
+      const client = await pool.connect();
+      (req as any).db = client;
+      res.on('finish', () => {
+        client.release();
+      });
+    }
+    next();
+  });
+
   // Middleware
   app.use(cors());
+  app.use(express.raw({ type: 'application/octet-stream', limit: '10mb' }));
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
