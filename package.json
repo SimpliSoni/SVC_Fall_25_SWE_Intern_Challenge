@@ -19,7 +19,7 @@
     "test": "vitest --run",
     "test:backend": "sudo node --require ./tests/polyfills.ts ./node_modules/vitest/vitest.mjs --config vitest.config.backend.ts --run",
     "test:backend:watch": "sudo node --require ./tests/polyfills.ts ./node_modules/vitest/vitest.mjs --config vitest.config.backend.ts",
-    "test:backend:coverage": "sudo node --require ./tests/polyfills.ts ./node_modules/vitest/vitest.mjs --config vitest.config.backend.ts --coverage --run",
+    "test:backend:coverage": "sudo node --require ./tests/polyfills.ts ./node_modules/vitest/vitest.mjs --config vitest.config.backend.ts --coverage --run --no-file-parallelism",
     "test:all": "npm run test && npm run test:backend",
     "test:coverage": "npm run test:backend:coverage",
     "test:db:setup": "docker run --name fairdatause-test-db -e POSTGRES_DB=fairdatause_test -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres:15",
